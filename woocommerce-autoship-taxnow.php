@@ -29,7 +29,8 @@ if ( is_plugin_active( 'woocommerce-autoship/woocommerce-autoship.php' ) && is_p
 	register_uninstall_hook( __FILE__, 'wc_autoship_taxnow_uninstall' );
 	
 	function wc_autoship_taxnow_add_tax_rates( $tax_rates, $schedule_id ) {
-		// taxnow_update_woo_order_meta
+		include_once( WP_PLUGIN_DIR . '/taxnow_woo/taxnow-woo.class.php' );
+		include_once( WP_PLUGIN_DIR . '/woocommerce-autoship/classes/wc-autoship-schedule.php' );
 		if ( class_exists( 'class_taxNOW_woo' ) && class_exists( 'WC_Autoship_Schedule' ) ) {
 			// Create TaxNOW instance
 			$taxnow_woo = new class_taxNOW_woo();
@@ -108,18 +109,7 @@ if ( is_plugin_active( 'woocommerce-autoship/woocommerce-autoship.php' ) && is_p
 								'compound' => 'no'
 							);
 							$tax_rates[ "wc_autoship_taxnow_{$l}_{$d}" ] = $tax_rate;
-// 							$lineitem_taxdetail = new class_taxnow_woo_tax_details();
-// 							$lineitem_taxdetail->set_tax_name( $TaxDetail->getTaxName() );
-// 							$lineitem_taxdetail->set_tax_rate( $TaxDetail->getRate() );
-// 							$lineitem_taxdetail->set_juris_name( $TaxDetail->getJurisName() );
-// 							$lineitem_taxdetail->set_juris_type( $TaxDetail->getJurisType() );
-// 							$lineitem_taxdetail->set_region( $TaxDetail->getRegion() );
-// 							$lineitem_taxdetail->set_taxable( $TaxDetail->getTaxable() );
-// 							$tax_details[] = $lineitem_taxdetail;
 						}
-	// 					$items[ $corr_keys[ $TaxLine->GetNo() ] ]->set_tax(
-	// 							$TaxLine->GetRate(), $TaxLine->GetTax(), $tax_details
-	// 					);
 					}
 				}
 			} catch( Exception $e ) {
@@ -130,4 +120,16 @@ if ( is_plugin_active( 'woocommerce-autoship/woocommerce-autoship.php' ) && is_p
 		return $tax_rates;
 	}
 	add_filter( 'wc_autoship_schedule_tax_rates', 'wc_autoship_taxnow_add_tax_rates', 10, 2 );
+	
+	function wc_autoship_taxnow_order_processed( $order_id, $schedule_id ) {
+		// Get autoship schedule
+		$schedule = new WC_Autoship_Schedule( $schedule_id );
+		// Calculate tax
+		$tax = $schedule->get_tax_total();
+		update_post_meta( $order_id, '_order_tax', number_format( (float) $tax, 2, '.', '' ) );
+		// Update total
+		$total = $tax + get_post_meta( $order_id, '_order_total', true );
+		update_post_meta( $order_id, '_order_total', number_format( (float) $total, 2, '.', '' ) );
+	}
+	add_action( 'wc_autoship_order_processed', 'wc_autoship_taxnow_order_processed', 10, 2 );
 }
